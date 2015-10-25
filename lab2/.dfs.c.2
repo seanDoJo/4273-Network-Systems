@@ -1,0 +1,102 @@
+t
+	recv(sock, buf, sizeof(buf), 0);
+	int x;
+	strcat(packet, buf);
+	for(x=0;x<4096;x++)buf[x] = 0;
+	do{
+		//read whatever is on the socket fully
+		while(copied = recv(sock, buf, sizeof(buf), MSG_DONTWAIT) > 0){
+			int i;
+			strcat(packet, buf);
+			for(i=0;i<4096;i++)buf[i] = 0;
+		}
+		//extract data from packet
+		if(strlen(packet) > 0){
+			//update our timeout
+			seconds = time(NULL);
+			//Check for valid username and password
+			char uname[2048];
+			if(userIsValid(packet, uname)){
+				//shift to user's document root
+				char workingdirectory[2048];
+				strcpy(workingdirectory, docroot);
+				strcat(workingdirectory, uname);
+				strcat(workingdirectory, "/");
+				mkdir(workingdirectory, 0755);
+				
+				//determine what the user wants us to do
+				int request = getRequestType(packet);
+				if (request == 0){
+					//handle GET
+				} else if(request == 1){
+					//handle PUT
+					char filename[2048];
+					getFileName(packet, filename);
+					receiveFile(sock, workingdirectory, filename);
+					keepalive = 0;
+				} else if(request == 2){
+					//handle LIST
+					sendList(sock, workingdirectory, uname);
+				} else {
+					//handle ERROR
+				}
+			} else {
+				//send incorrect user
+				sendError(sock, "incorrect user information detected");	
+			}
+		}
+		int i;
+		for(i=0;i<sizeof(packet);i++)packet[i] = 0;
+		strcpy(packet, "");
+		if(copied == 0)break;
+	}while(((time(NULL)) - (seconds) < 1) && keepalive);
+	close(sock);	
+	free(args);
+	pthread_exit((void*)(0));
+}
+
+int getFileName(char* packeto, char fileName[]){
+	char packet[8192];
+	strcpy(packet, packeto);
+	char* token = strtok(packet, "\n");
+	char startLine[2048];
+	char localFile[2048];
+	int i;
+	for(i=0;i<2048;i++)localFile[i] = 0;
+	while(token != NULL){
+		if(strstr(token, "PUT") != NULL || strstr(token, "GET") != NULL){
+			strcpy(startLine, token);
+			break;
+		}
+		token = strtok(NULL, "\n");
+	}
+	
+	char* token2 = strtok(startLine, " ");
+	int fileNext = 0;
+	while(token2 != NULL){
+		if(fileNext == 1){
+			strcpy(localFile, token2);
+			break;
+		}
+		else if(strstr(token2, "PUT") != NULL || strstr(token2, "GET") != NULL){fileNext = 1;}
+		token2 = strtok(NULL, " ");
+	}
+	strcpy(fileName, localFile);
+}
+void setParameters(void) {
+	/*function to parse ws.conf*/
+	char filename[2048];
+	strcpy(filename, docroot);
+	strcat(filename, "dfs.conf");
+	printf("Filename: %s\n", filename);
+	FILE* conf = fopen(filename, "r");
+	if(conf == NULL){
+		printf("No dfs.conf detected in document root! Please provide one!\n");
+		exit(1);
+	}
+	char line[2048];
+	int compatp = 0;
+	while(fgets(line, sizeof line, conf) != NULL){
+		if(strstr(line, "#") == NULL && strlen(line) > 1){
+			char* token = strtok(line, " ");
+			strcpy(use

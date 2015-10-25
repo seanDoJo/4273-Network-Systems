@@ -1,0 +1,15 @@
+CSCI 4273 Lab 1: Simple HTTP Server
+Author: Sean Donohoe
+Identikey: sedo8743
+
+To Build:
+
+	gcc labServer.c -o labServer -lpthread
+
+To Run:
+
+	- you NEED a ws.conf file in the format of the file which has been provided
+	
+	run: ./labServer ws.conf
+
+	- the server will display any outgoing packets as connections are received

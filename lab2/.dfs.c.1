@@ -1,0 +1,113 @@
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <pthread.h>
+
+#include <netinet/in.h>
+#include <netdb.h>
+
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <regex.h>
+#include <dirent.h>
+int hostsock(const char* portnum, int waitLen);
+void handleRequest(void* ptr);
+void setParameters(void);
+int getFileName(char* packet, char fileName[]);
+int userIsValid(char* packet, char* username);
+int getRequestType(char* packeto);
+void sendFile(int sock, char* fileName, int keepalive);
+void sendList(int sock, char* directory, char* uname);
+void sendError(int sock, char* msg);
+void sendClosingAck(int sock);
+void receiveFile(int sock, char* workingdirectory, char* filename);
+struct targs {
+	int newSock;
+};
+int numUsers = 0;
+char userpass[20][2048];
+char portnum[32];
+char docroot[1024];
+
+int main(int argc, char* argv[]){
+	
+	if(argc < 3){
+		printf("need to specify document root and port number!\nUsage: ./dfs DOCROOT PORTNUM\n");
+		exit(1);
+	}
+	if(argv[1][strlen(argv[1])-1] != '/')strcat(argv[1], "/");
+	strcpy(docroot,argv[1]);
+	printf("%s\n", docroot);
+	strcpy(portnum,argv[2]);
+	setParameters();
+	struct sockaddr_in fsin;
+	int hSock, rc;
+
+	hSock = hostsock(portnum, 32);
+	unsigned int fsize = sizeof(fsin);
+	while(1){
+		int incoming;
+
+		incoming = accept(hSock, (struct sockaddr*)&fsin, &fsize);
+
+		struct targs* newargs = malloc(sizeof(struct targs));
+		newargs -> newSock = incoming;
+		pthread_t newConnection;
+		
+		//spawn a new thread on receipt of a new connection
+		rc = pthread_create(&newConnection, NULL, (void*)handleRequest, (void*)(newargs));
+		if(rc < 0){
+			printf("pthread failed!\n");
+			//sendServerError(incoming);
+			close(incoming);
+			free(newargs);
+		}
+	}
+}
+
+int hostsock(const char* portnum, int waitLen){
+	struct sockaddr_in sin;
+	int sock;
+
+	//initialize sin
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = INADDR_ANY;
+	sin.sin_port=htons((unsigned short)atoi(portnum));
+
+	//create the socket
+	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	//bind the socket
+	if(bind(sock, (struct sockaddr*)&sin, sizeof(sin)) < 0){
+		printf("Couldn't bind to port %s\nExiting!\n", portnum);
+		exit(1);
+	}
+
+	//listen on socket
+	if(listen(sock, waitLen) < 0){
+		printf("Couldn't listen on socket\n");
+		exit(1);
+	}
+	printf("Listening on %s...\n", portnum);
+
+	return sock;
+}
+
+void handleRequest(void* ptr){
+	struct targs* args = ptr;
+	int sock, copied;
+	time_t seconds;
+	char buf[4096];
+	char packet[8192];
+	int keepalive = 1;
+
+	strcpy(packet, "");
+	sock = args -> newSock;
+
+	//read in data
+	//initial blocking receive to ensure we connec

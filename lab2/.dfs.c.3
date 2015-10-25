@@ -1,0 +1,114 @@
+rpass[numUsers], "");
+			while(token != NULL){
+				strcat(userpass[numUsers], token);
+				strcat(userpass[numUsers], ":");
+				token = strtok(NULL, " ");
+			}
+			int newlen = strlen(userpass[numUsers]);
+			int z;
+			for(z=newlen-2;z<newlen;z++)userpass[numUsers][z] = '\0';
+			numUsers++;
+		}
+		int x;
+		for(x=0;x<2048;x++)line[x] = 0;
+	}
+	fclose(conf);
+}
+/*void sendFile(int sock, char* fileName, int keepalive){
+	struct stat st;
+	stat(fileName, &st);
+	int doclength = st.st_size;
+	FILE* page = fopen(fileName, "r");
+
+	//Construct header with correct data
+	char str[4096];
+	char content[1024];
+	char keep[1024];
+	getContentType(fileName, content);
+	if(!strcmp(content, "NONE")){
+		sendBad(sock,fileName,3);
+		return;
+	}
+	char* token = strtok(content, " ");		
+	while(token != NULL){
+		if(strstr(token, "/") != NULL){
+			strcpy(content, token);
+			break;
+		}	
+		token = strtok(NULL, " ");
+	}
+	if(keepalive)strcpy(keep, "keep-alive");
+	else strcpy(keep, "close");
+	char* msg = "HTTP/1.1 200 OK\r\n"
+			"Content-Type: %s"
+			"Content-Length: %d\r\n"
+			"Connection: %s\r\n\r\n";
+	sprintf(str, msg, content, doclength, keep);
+	printf("%s\n",str);
+	
+	//Send header data
+	int length = strlen(str);
+	do{
+		int numsent = send(sock, str, length, MSG_NOSIGNAL);
+		if(numsent < 0)break;
+		msg += numsent;
+		length -= numsent;
+	}while(length > 0);
+
+	//send file contents as binary
+	unsigned char readbuf[1024];
+	while(!feof(page)){
+		int numread = fread(readbuf, sizeof(unsigned char), 1024, page);
+		if(numread < 0)break;
+		unsigned char* bufptr = readbuf;
+		do{
+			int numsent = send(sock, bufptr, numread, MSG_NOSIGNAL);
+			if(numsent < 0){
+				break;
+			}
+			bufptr += numsent;
+			numread -= numsent;
+		}while(numread > 0);
+			
+	}
+	fclose(page);
+}*/
+int userIsValid(char* packeto, char* username){
+	char packet[8192];
+	char name[2048];
+	char pass[2048];
+	int local;
+	strcpy(packet, packeto);
+	strcpy(username, "");
+	char* token = strtok(packet, "\n");
+	while(token != NULL){
+		if(strstr(token, "NAME") != NULL){
+			char* subtoken = strtok(token, " ");
+			int step = 0;
+			while(subtoken != NULL){
+				if(step == 1)strcpy(name, subtoken);
+				subtoken = strtok(NULL, " ");
+				step++;
+			}	
+		}
+		token = strtok(NULL, "\n");
+	}
+	strcpy(packet, packeto);
+	token = strtok(packet, "\n");
+	while(token != NULL){
+		if(strstr(token, "WORD") != NULL){
+			char* subtoken = strtok(token, " ");
+			int step = 0;
+			while(subtoken != NULL){
+				if(step == 1)strcpy(pass, subtoken);
+				subtoken = strtok(NULL, " ");
+				step++;
+			}	
+		}
+		token = strtok(NULL, "\n");
+	}
+	if(strlen(name) < 1)return 0;
+	int i;
+	for(i=0;i < numUsers;i++){
+		if(strstr(userpass[i], name) != NULL){
+			char l

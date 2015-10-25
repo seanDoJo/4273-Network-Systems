@@ -1,0 +1,26 @@
+CSCI 4273
+Assignment 2
+
+Author: Sean Donohoe
+
+BUILD:
+
+	gcc dfc.c -o dfc -lpthread -lcrypto -lssl
+	gcc dfs.c -o dfs -lpthread
+
+RUN:
+	The following requirements must be met in order to have successful execution:
+		
+		1. a directory must exist for each spawned dfs
+
+		2. a dfs.conf must exist inside each directory for each spawned dfs
+
+		3. a dfc.conf is required to run the dfc
+
+	to run:
+		
+		./dfs <directory-for-dfs> <port-number>
+		
+		./dfc dfc.conf
+
+	A menu will prompt you for various actions when dfc begins running

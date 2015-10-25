@@ -1,0 +1,114 @@
+inecop[2048];
+			strcpy(linecop, userpass[i]);
+			char* subtoken = strtok(linecop, ":");
+			int step = 0;
+			while(subtoken != NULL){
+				if(step == 1){
+					if(!strcmp(pass, subtoken)){
+						strcpy(username, name);
+						return 1;
+					}	
+				}
+				subtoken = strtok(NULL, ":");
+				step++;
+			}
+		}
+	}
+	return 0;
+}
+
+int getRequestType(char* packeto){
+	char packet[8192];
+	strcpy(packet, packeto);
+	char* token = strtok(packet, "\n");
+	while(token != NULL){
+		if(strstr(token, "LIST") != NULL)return 2;
+		else if(strstr(token, "GET") != NULL)return 0;
+		else if(strstr(token, "PUT") != NULL)return 1;
+		token = strtok(NULL, "\n");
+	}
+	return -1;
+}
+
+void sendList(int sock, char* directory, char* uname){
+	DIR* dp;
+	struct dirent* ep;
+	char dircontents[8192];
+	strcpy(dircontents, "");
+	char* sendcontents = "LIST\nUSERNAME: %s\n%s\n";
+	char localdir[2048];
+	char str[8192];
+	strcpy(localdir, "./");
+	strcat(localdir, directory);
+	dp = opendir(localdir);
+	if(dp != NULL){
+		while(ep = readdir(dp)){
+			if(!!strcmp(ep -> d_name, ".") && !!strcmp(ep -> d_name, "..")){
+				strcat(dircontents, ep -> d_name);
+				strcat(dircontents, "\n");
+			}
+		}
+	}
+	sprintf(str, sendcontents, uname, dircontents);
+	printf("outgoing:\n%s", str);
+	int length = strlen(str);
+	unsigned char* msg = str;
+	do{
+		int numsent = send(sock, msg, length, MSG_NOSIGNAL);
+		if(numsent < 0)break;
+		msg += numsent;
+		length -= numsent;
+	}while(length > 0);
+	closedir(dp);
+}
+void sendError(int sock, char* info){
+	char* sendcontents = "ERROR\n%s\n";
+	char str[1024];
+	sprintf(str, sendcontents, info);
+	int length = strlen(str);
+	printf("%s\n", str);
+	unsigned char* msg = str;
+	do{
+		int numsent = send(sock, msg, length, MSG_NOSIGNAL);
+		if(numsent < 0)break;
+		msg += numsent;
+		length -= numsent;
+	}while(length > 0);
+}
+void receiveFile(int sock, char* workingdirectory, char* filename){
+	char str[4096];
+	char* msg = "ACK OK %s\n\n";
+	sprintf(str, msg, filename);
+	
+	int length = strlen(str);
+	unsigned char* bufptr = str;
+	do{
+		int numsent = send(sock, bufptr, length, MSG_NOSIGNAL);
+		if(numsent < 0){
+			printf("Bad: %d\n", numsent);
+			break;
+		}
+		bufptr += numsent;
+		length -= numsent;
+	}while(length > 0);
+
+	char fullFileName[4096];
+	strcpy(fullFileName, workingdirectory);
+	strcat(fullFileName, "/");
+	strcat(fullFileName, filename);
+	FILE* file = fopen(fullFileName, "w");
+	char buf[4096];
+	int i;
+	int copied;
+	
+	copied = recv(sock, buf, sizeof(buf), 0);
+	fwrite(buf, 1, copied, file);
+	for(i=0;i<4096;i++)buf[i]=0;
+	while(copied = recv(sock, buf, sizeof(buf), 0)){
+		if(copied == 0)break;
+		fwrite(buf, 1, copied, file);
+		int i;
+		for(i=0;i<4096;i++)buf[i]=0;
+	}
+	fclose(file);
+}
